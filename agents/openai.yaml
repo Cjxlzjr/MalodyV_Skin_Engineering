@@ -1,0 +1,4 @@
+interface:
+  display_name: "MalodyV Lua Skin Graph Engineering"
+  short_description: "Trace and safely change MalodyV skin graphs"
+  default_prompt: "Use $malodyv-lua to trace the active skin graph, preserve its contracts, and implement or diagnose this MalodyV task."
