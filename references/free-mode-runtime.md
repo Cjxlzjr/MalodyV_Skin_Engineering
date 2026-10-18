@@ -1,5 +1,7 @@
 # Free Mode Runtime Supplement
 
+Read for Free Mode callback ownership and runtime differences. DOC is historical documentation; TARGET is source usage; LOG/PROBE is a scoped observation. Neither the case study nor a call seen in source proves availability on another host.
+
 Use with `official-free-mode.md`; it supplements rather than overrides documented contracts.
 
 Evidence tags: **DOC** bundled official documentation; **LOG** official changelog name only; **PROBE** Windows MalodyV `6.7.12` runtime observation; **TARGET** callable usage recovered from a working Free Mode script. Do not generalize **PROBE/TARGET** across versions, platforms, modes, or callbacks without retesting.
@@ -50,7 +52,7 @@ Evidence tags: **DOC** bundled official documentation; **LOG** official changelo
 - **TARGET** When supported by the host, `Game:PlayMeta("speed")` returns the effective play-speed multiplier for the current play session.
 - Normalize with `tonumber` and treat positive values as multipliers; observed examples include `1.0`, `1.2`, `1.5`, and `0.8`, but the range is not universal.
 - Use this value directly for speed-sensitive animation timing and hit-offset normalization. Do not combine it with `Game:PlayMeta("mod")` speed bits or a separate Composer Turbo correction.
-- The exact callback/version contract remains target-specific; probe the call in the callback where it is consumed and use a neutral `1.0` compatibility fallback only when necessary.
+- The exact callback/version contract remains target-specific; probe the call in the callback where it is consumed and use a neutral `1.0` fallback only for optional presentation with an accepted fallback policy; required judgement normalization must not silently assume no speed Mod.
 
 ## Play controller
 
@@ -69,7 +71,7 @@ The following are **DOC** and were visible in the **PROBE** unless noted:
 | `Play:FindNoteByTime(lower, upper)` | Return unfinished visible Notes around current time as a zero-based engine list. |
 | `Play:SetMissTime(ms)` | Configure automatic miss delay. |
 
-- **TARGET exception** One script passes full `info` to `SetNoteFinish`; this may be a permissive overload. Do not copy it unless the exact target is probed?use `info.nid` by default.
+- **TARGET exception** One script passes full `info` to `SetNoteFinish`; this may be a permissive overload. Do not copy it unless the exact target is probed; use `info.nid` by default.
 - **TARGET** Custom judgment code keeps its own score/combo/count state, then pushes it through the setters above. Do not expect a `Score` global.
 
 ## Input, hit, and general APIs
@@ -83,8 +85,8 @@ The following are **DOC** and were visible in the **PROBE** unless noted:
 ## Post-6.2 observations
 
 - **LOG/PROBE** `Game:PlayMeta` exists. On `6.7.12`, `PlayMeta("judge")` returned number `4`, `PlayMeta("mod")` returned number `0` with no Mod, and an unknown key also returned `0`; non-`nil` does not prove key validity.
-- **TARGET** `PlayMeta("speed")` is used as a flow-speed input. Its type, units, and values under speed Mods remain unconfirmed.
-- **LOG/PROBE** `Game:FileHash` is callable, but two unverified names returned `""`; path scope, missing-file behavior, algorithm, and output format remain unknown.
+- **TARGET** `PlayMeta("speed")` is used as a flow-speed input. That source-only observation did not establish type, units, or Mod values. The multiplier guidance above applies only when the consuming target has separately validated those properties; no universal guarantee follows.
+- **LOG/PROBE** `Game:FileHash` is callable, but two unverified names returned `""`; that probe alone does not establish path scope or missing-file behavior. The later existing-file Basic/Key result is recorded in [chart identity](chart-identity.md); do not merge these different scopes.
 - **LOG/PROBE** `Network:DoRequest` is a Free Mode function. `Network.OnResponse` is `nil`; treat `OnResponse(...)` as a global callback name pending confirmation of parameters and trigger behavior.
 
 ## Minimal original example
@@ -117,3 +119,15 @@ function OnNoteMove(info, mod, percent)
     end
 end
 ```
+
+## Supplied working reference case: semicircle custom judge
+
+**TARGET (static source and ASM only):** A supplied working skin package contains `info.json`, `info.asm`, `test.lua`, 25 hit-light frames, Note/judgment images, and no additional Lua dependencies. Its metadata contains `mode=7` and `feature=10`; retain those numeric values as package observations, not recovered enum names. The `info.asm` parser finds 11 Composer modules, no applicability conditions, no triggers, and no duplicate IDs. The ordinary UI IDs used by Lua are `hitlight`, `best`, `cool`, `good`, and `miss`; do not reuse them as required IDs in another skin.
+
+- `Init()` reads `Game:Width()`/`Height()`, resolves ordinary modules through `Module:Find`, configures `Play:SetMissTime`, and resets custom score/combo/judge counters through `DoRetry()`. This is a compact reference for separation of initialization and retry state, not proof that every callback runs in this order.
+- `OnProcessNote()` inspects chart Notes and their zero-based `segments` engine list, then calls `Note:AddVirtual` for a visual effect. The script’s `for i = 1, count - 1` loop conflicts with the documented/probed zero-based Chart collection convention, so do **not** copy that outer-loop start: use `0 .. count - 1` unless the exact chart contract is independently established. Its source/virtual type numbers are rendering-algorithm choices, not global Note enums.
+- `OnDrawNote(info)` selects a Note template and adds a sprite; `OnNoteMove(info, mod, p)` maps `p[0]` through a semicircle transform and hides locally marked Notes. The `0..255` X range, semicircle geometry, `info.extra`, and image filenames are case-specific. They demonstrate that a script can keep custom per-Note state and use progress as an interpolation input, not a screen coordinate.
+- `OnInput()` gets `Game:InputEvent()`, checks only the Down event, maps screen hit coordinates to its own logical X range, then calls `Play:FindNoteByTime(-150, 150)` for custom timing judgment. `OnHit()` separately consumes the engine miss result through `Game:HitEvent()` and `NoteInfoEx()`. Treat custom input judgment and engine-result fallback as separate paths; probe their coexistence under Manual, AutoPlay, retry, and replay before changing either.
+- Custom result state is published with `Play:SetScore`, `SetCombo`, `SetAcc`, `SetCountByType`, and `SetNoteFinish(info.nid)`. Visual effects use `Module:Shadow` on ordinary Composer modules plus `Play`/`DoAlpha`/`DoScaleX`/`DoScaleY` on the shadow. This confirms a useful presentation pattern, but shadow lifetimes, durations, and the score thresholds are target-specific.
+
+Use this case to test a skill response: it should identify the callback scopes, retain the `0..count-1` list warning, separate general API evidence from the semicircle algorithm, and give a Manual/AutoPlay/Retry/Replay probe plan. It must not claim that `mode=7`, `feature=10`, Note types, judge result `4`, or the package's modules/assets are universal contracts.

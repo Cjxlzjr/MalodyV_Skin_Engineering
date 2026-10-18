@@ -1,5 +1,7 @@
 # Player-Facing Gameplay Rules
 
+Read only for player-facing score, judgement, grade, Full Combo, or long-note semantics. The Wiki 467 rules below are a historical baseline, not a verified current cross-mode contract; exact target event evidence governs implementation.
+
 This reference summarizes the user-provided Malody Wiki page "How to play" (page 467, retrieved August 3, 2026). It exists to guide player-facing UI, labels, result panels, and acceptance tests. It is not a license to recreate engine scoring or judgement logic from display rules alone.
 
 ## Usage boundary
@@ -101,3 +103,17 @@ result grade uses final accuracy/result state, not an early live value
 FC is distinct from score and handles holds according to target evidence
 retry clears every cached result label and badge
 ```
+
+## Long-note event and accuracy rules
+
+
+Treat a long note as a small event state machine, not as one repeated `OnHit` sample. The target may expose a head, zero or more body/tick/expired callbacks, a release/tail, duplicate callbacks, or a callback whose judgment enum differs from the final player-facing Miss label. Before changing any long-note score, accuracy, combo, replay, or native path:
+
+- Build an event table for the exact target version/mode: note identity if available, lane, note kind, callback/input phase, judgment result, offset, chart time, game time, and whether the event is scoring.
+- Identify the authoritative lifecycle transition for `head -> active -> tick/break -> tail/release -> completed`; do not infer it from lane alone, the most recent input event, callback order, or a display label.
+- Keep per-note identity and phase separate from per-lane state. A lane is reusable and can contain overlapping or adjacent notes; a cached lane flag must not turn a tick, stale event, or second callback into a new note.
+- Map every engine result explicitly, including non-scoring, expired/unjudged, break, and release results. Never assume only the visible judgment values exist, and never let an unrecognized result enter the accuracy denominator.
+- Count the intended statistical unit exactly once. Decide whether the metric scores heads, tails, both, or weighted segments; make the numerator, denominator, Miss treatment, and negative-score policy explicit. A negative per-event value must not arise merely from repeated lifecycle callbacks.
+- Reset and close state on release, miss/break completion, Retry, reload, replay restart, and any target-specific note identity change. Test a long note followed by another note on the same lane.
+
+The minimum deterministic fixture is: a perfect tap, a perfect long-note head, repeated body/expired events, an early/late release, a missed head, a missed tail, adjacent same-lane long notes, duplicate callbacks, and Retry. Compare per-event count, denominator, last score, accuracy, combo, and state ownership; a final percentage alone cannot reveal duplicate-counting or stale-lane bugs.

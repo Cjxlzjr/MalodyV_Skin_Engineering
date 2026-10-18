@@ -1,139 +1,63 @@
 ---
-name: malodyv-lua
-description: Trace and engineer MalodyV Lua skin graphs. Use when creating, modifying, debugging, reviewing, optimizing, or explaining a skin; diagnosing load or blank-screen failures; or changing Composer, Play/Free Mode callbacks, gameplay displays, replay behavior, or Lua/native boundaries.
+name: malodyv-skin-engineering
+description: Create, modify, diagnose, review, or explain MalodyV skins and their Lua callbacks, Composer/info.asm structure, gameplay displays, runtime timing, and Lua/native boundaries. Use when the task needs MalodyV skin contracts; do not trigger for unrelated Lua code or documentation-only typo/formatting edits.
 ---
 
-# MalodyV Lua Skin Engineering
+# MalodyV Skin Engineering
 
-Treat a skin as a **skin graph**: the metadata-selected entry, reachable Lua modules, Composer nodes and settings, assets, engine callbacks, deployment copies, and optional native modules that jointly produce the behavior.
+Treat a skin as a graph: metadata-selected entry, reachable Lua modules, Composer nodes/settings, assets, callbacks, and any native dependency. Identify the affected path before changing runtime behavior; distinguish source from generated, backup, probe, and deployed copies.
 
-## Core Loop
+## Scope and authorization
 
-Run this loop for every task. Each step has a completion criterion; do not advance until it is met.
+Read the whole request, not just its first verb. Explanation or review alone is read-only. “Diagnose and fix” or “audit and optimize” authorizes the corresponding source edits after investigation; a diagnosis stage does not cancel that authorization. Explicit invocation for instruction maintenance applies this skill without requiring gameplay work.
 
-1. **Trace the graph.** Find the active skin root, metadata-selected entry, reachable `require` edges, relevant callbacks, mode, host/version clues, Composer dependencies, assets, deployment copies, and available probes. Complete when the requested behavior has one identified execution path or the ambiguity is explicitly blocking.
-2. **Route the branch.** Select the smallest branch in [Branch Router](#branch-router) and read every referenced file named by that row. Complete when all API, deployment, gameplay, or native facts needed for the edit have a source.
-3. **Pin the contracts.** Record engine-facing assumptions as `official`, `target-observed`, `probe-observed`, `inferred`, or `unknown`. Complete when every changed callback, field, unit, index, Composer ID, setting key, reset path, and public module surface is accounted for.
-4. **Patch the narrow path.** Preserve the target architecture and public contracts; change only the reachable path needed for the request. Complete when the user-visible behavior is implemented without an unrelated rewrite.
-5. **Prove the behavior.** Climb the validation ladder from static checks to focused behavior and exact-host evidence. Complete only at the task-class gate in [Completion Gates](#completion-gates).
-6. **Hand off the evidence.** Report changed files, preserved contracts, checks run, host verification status, remaining uncertainty, rollback scope, and the exact in-game observation that confirms success.
+Deployment is a separate action: copy to a live skin only when requested. An already explicit destination and backup scope need no repeated confirmation. Do not commit, push, publish, or broaden the target merely because a reference describes those operations.
 
-Use this compact ledger while working:
+Preserve existing collaborators' edits. A dirty file is not itself a blocker: inspect the current content and apply a narrow patch. Stop only an operation that would overwrite unresolved conflicting work. Back up deployed or unversioned files before overwriting, retain relative paths, and record prior absence for new files.
 
-```text
-fact | source: official/target/probe/inferred/unknown | confidence | validation needed | decision
-```
+## Work from evidence
 
-Never promote an inferred or unknown fact into an engine contract without saying so.
+1. Read applicable project instructions and inspect the requested artifact. For runtime work, trace metadata → entry → affected callbacks/modules/nodes. For a new skin, establish the intended graph. A documentation-only edit needs only relevant references.
+2. Select the relevant reference below. Read sections on demand; do not load every manual, case study, or module example.
+3. Pin result-changing facts: target version/platform/mode, callback scope, units/indexes, event identity, required nodes, state reset, and property ownership. Use existing evidence before asking for missing information.
+4. Make the smallest compatible authorized change. Preserve public callback/module contracts, Composer IDs/settings/assets, event mappings, serialized data, raw observations, and existing compatibility behavior unless the requested change requires otherwise.
+5. Run proportional checks using [validation](references/validation.md). Finish independent local work when the host is unavailable, then report host acceptance as unverified with an executable procedure.
 
-## Branch Router
+Evidence labels: `official` is a published contract; `target` is inspected source/artifact; `probe` is a controlled observation; `inferred` is a hypothesis; `unknown` is unresolved. Record version/platform/mode/callback for material runtime claims. Official documents establish published API names; exact-target probes establish behavior in their scope. Changelog names do not establish signatures. Historical copies and case studies are not proof of current cross-version support.
 
-Load only the row that matches the requested behavior. A task may require more than one row, but each added reference must earn its context cost.
+## Read only the relevant branch
 
-| Request touches | Read before editing | Required evidence |
-|---|---|---|
-| Existing UI text, score, accuracy, combo, clock, KPS, layout, or animation | [`official-basic.md`](references/official-basic.md), [`ui-data-animation.md`](references/ui-data-animation.md); [`reusable-modules.md`](references/reusable-modules.md) when creating a common feature | Authoritative value, node/property owner, update cadence, reset behavior, and visible acceptance condition |
-| Composer settings, IDs, templates, clones, anchors, layers, masks, or localization | [`composer-components.md`](references/composer-components.md), [`official-basic.md`](references/official-basic.md); configuration/locale adapter in [`reusable-modules.md`](references/reusable-modules.md) | Stable keys and IDs, required/optional classification, fallback behavior, and representative config/locale smoke test |
-| Play Mode lifecycle, input, hit events, score, retry, replay, or chart parsing | [`official-basic.md`](references/official-basic.md), [`implementation-safety.md`](references/implementation-safety.md), [`validation.md`](references/validation.md); [`player-gameplay-rules.md`](references/player-gameplay-rules.md) for player-facing semantics | Callback ownership, event shape, units/indexes, retry/reload behavior, and focused host or replay evidence |
-| Free Mode, virtual/custom notes, grids, note judgment, or version-sensitive callbacks | [`official-free-mode.md`](references/official-free-mode.md), [`free-mode-runtime.md`](references/free-mode-runtime.md), [`version-ledger.md`](references/version-ledger.md), [`validation.md`](references/validation.md) | Exact mode, callback and call shape, target version, sparse/dense cases, and hold/chord behavior |
-| Native bridge, DLL, ABI, hot path, or performance migration | [`native-architecture.md`](references/native-architecture.md), [`runtime-deployment.md`](references/runtime-deployment.md), [`implementation-safety.md`](references/implementation-safety.md), [`validation.md`](references/validation.md) | Isolated load probe, scalar boundary, ABI/export/architecture evidence, replay comparison, deployment hash, and rollback path |
-| Difficulty, statistics, analyzer, or chart-wide algorithms | [`implementation-safety.md`](references/implementation-safety.md), [`validation.md`](references/validation.md); relevant catalog entry in [`reusable-modules.md`](references/reusable-modules.md) | Chart-wide versus callback boundary, deterministic fixtures, malformed/empty input behavior, and measured cost where optimization is claimed |
-| Blank screen, load failure, missing module, encoding, or deployment mismatch | [`runtime-deployment.md`](references/runtime-deployment.md), [`project-conventions.md`](references/project-conventions.md) when repository-specific | Active copy, entry and loader path, encoding, last successful lifecycle stage, exact error, and safe rollback |
-| A large Basic Mode implementation or a documented local reference module | [`basic-mode-case-study.md`](references/basic-mode-case-study.md) or [`reference-module-provenance.md`](references/reference-module-provenance.md) only when that provenance is actually relevant | Portable pattern separated from target-specific IDs, settings, assets, ABI names, and assumptions |
+| Task | Reference and purpose |
+|---|---|
+| Basic callbacks or Module/Game API | [Historical basic API](references/official-basic.md); [version ledger](references/version-ledger.md) for version-sensitive capabilities |
+| Free Mode notes, custom judgement or callbacks | [Free runtime supplement](references/free-mode-runtime.md), then the needed table in [historical Free API](references/official-free-mode.md) |
+| Composer layout, serialized fields, conditions, triggers | [Composer components](references/composer-components.md); keep ordinary UI lookup, Note templates, Scenes and Triggers distinct |
+| New skin or new Composer module conventions | [ASM creation](references/asm-creation.md); explicit user/project conventions override generator defaults |
+| Legacy UIS/4.3.7 port | [Migration guide](references/legacy-uis-migration.md); linked BeatTube case is optional, target-specific evidence |
+| Text, animation, locale, coordinates or UI data | [UI contracts](references/ui-data-animation.md); [Text API](references/textapi.md) for placeholders |
+| Score, accuracy, grade, Full Combo or long-note state | [Gameplay rules and event phases](references/player-gameplay-rules.md) |
+| Pause, rollback, offset shift or report interpretation | [Clock anomalies](references/gameplay-clock-anomalies.md) |
+| Blank screen, loader, runtime files or deployment | Relevant sections of [runtime/deployment](references/runtime-deployment.md) |
+| Numerical/state/cache boundary | [Implementation safety](references/implementation-safety.md) |
+| Dense-section or frame-cost work | [Performance](references/performance-engineering.md); measure before claiming improvement |
+| Existing or justified new native boundary | [Native architecture](references/native-architecture.md) |
+| Ambiguous chart lookup | [Chart identity](references/chart-identity.md), before changing difficulty math |
+| Reusable implementation pattern | Selected module in [module catalog](references/reusable-modules.md); examples require target binding |
+| Historical implementation provenance | [Provenance map](references/reference-module-provenance.md) or [Basic case](references/basic-mode-case-study.md), only when needed |
+| Analyzer/MinaCalc project specifically | [Analyzer conventions](references/project-conventions.md); do not impose its filenames on other skins |
 
-## Trace the Active Graph
+## Correctness boundaries
 
-Inspect before asking the user for implementation details:
+- Do not guess undocumented APIs, callback shapes, enums, lane/index bases, timing units, note identity, wire fields or property owners. Resolve from local evidence or an isolated probe. If still unknown, pause only dependent implementation/compatibility claims and continue independent work.
+- Required nodes, assets, computation and native dependencies must fail clearly if unavailable. Disable only genuinely optional features with a verified fallback. Do not use zero/default values to disguise missing gameplay data.
+- For judgement/replay changes, establish an event contract and comparison oracle before changing semantics. Long notes require note identity and phase, not only lane or the latest input. Compare per-event state rather than final percentages alone.
+- Each changed temporal subsystem needs a named clock and complete reset/rebase policy for derived timestamps, cursors, histories, smoothing, extrema, scales and geometry. Clamping negative `dt` alone is insufficient. Preserve raw event evidence; pause rollback is not automatically Retry. Use a non-zero regression fixture exposing the visible failure.
+- Before activating native gameplay, prove load/ABI, scalar contracts and deterministic comparison. Pure implementation may be staged without host access. Deployment hashes belong to deployment verification, not prerequisites for editing a pure helper.
+- Keep one continuous owner per mutable Composer property. Static ASM animation and Lua must not compete implicitly. Ordinary UI duplicate-ID lookup observations do not establish Note-template or Trigger behavior.
+- For performance changes, preserve gameplay/report semantics and compare a fixed workload. A mock can measure local calls/writes and state; it cannot prove FPS or exact-host acceptance.
 
-1. Read applicable `AGENTS.md`, project context, metadata, Lua entry files, Composer artifacts, and repository conventions.
-2. Distinguish source, generated, backup, `.buffer`, probe, obfuscated, and deployed copies.
-3. Search lifecycle definitions, `require` edges, `Module:*`, `Game:*`, event access, Composer IDs, settings, and assets on the requested path.
-4. Classify the target as resource-only, single-file Lua, modular Lua, configuration-driven, analyzer/tooling, probe/test, native-assisted, generated/obfuscated, or legacy/experimental.
-5. Reuse the closest working target pattern without normalizing every skin to one architecture.
+## Completion and handoff
 
-Derive this brief before mutation:
+Report changed files and behavior, material preserved contracts, actual checks/results, and remaining result-changing unknowns. Include source/deployed hashes and rollback scope only when those operations occurred. Keep details in an artifact when a full evidence ledger is useful.
 
-```text
-user-visible goal
-active skin root and entry
-mode and reachable callbacks
-affected nodes/assets/settings
-authoritative data and units
-state, reset, and property ownership
-files that must change
-observable acceptance behavior
-unresolved assumptions
-```
-
-Ask only when local evidence cannot distinguish an active entry, node, mode/API contract, destructive deployment target, or conflicting required behavior. Infer low-impact style, naming, cache, formatting, and animation details from the target and report those assumptions afterward.
-
-## Contract Rules
-
-Preserve these contracts unless the request explicitly changes them:
-
-- Metadata-selected entry, public callbacks, module names and returns.
-- Composer IDs, setting keys, templates, clone names, assets, and serialized data.
-- Event fields, judgment mappings, index bases, units, masks, modifiers, hold/chord semantics, and result fields.
-- Existing compatibility behavior, locale keys, reset semantics, and deployment shape.
-
-Use exact runtime observation on the target version/mode/callback first, active target code second, bundled official references third, and general Lua knowledge last. A fact observed in one callback or mode applies only to that boundary.
-
-Prefer a local helper for a small isolated behavior. Add a module when the target already uses modules or the feature owns an independent lifecycle/state boundary. Introduce native code only for measured or clearly dominant pure computation that can be expressed through stable scalar data.
-
-Keep required initialization failures visible. Isolate optional UI, diagnostics, or analysis failures only when a real fallback exists.
-
-## Mutation Safety
-
-Before overwriting a deployed or unversioned skin file, create a fresh timestamped backup that preserves relative paths and records whether rollback covers source, deployment, or both. For a new destination file, record its prior absence so rollback can remove it.
-
-Do not deploy merely because the user mentioned a game directory. Validate the source first; deploy only when requested, back up the destination immediately before replacement, copy only confirmed files, and verify deployed hashes.
-
-## Validation Ladder
-
-Validate in increasing scope and stop claiming only what the completed rung proves:
-
-1. **Static:** encoding/no-BOM where required, Lua syntax, reachable modules, exported helper surfaces, required Composer lookups, and obvious nil/unit/index errors.
-2. **Focused behavior:** lifecycle order, event/value path, reset/retry/reload/time-rollback behavior, missing optional nodes/settings, edge values, and property ownership.
-3. **Replay or deterministic probe:** normalized inputs, per-event snapshots, first mismatch, state hash/counters, and zero-difference comparison for gameplay or algorithm migrations.
-4. **Exact host:** correct version, platform, mode, active copy, callback entry, visible result, relevant log stage, and native/deployment evidence when applicable.
-
-Parsing proves syntax, not visual or gameplay correctness. When the host is unavailable, finish every reachable lower rung and give the exact manual action, mode, expected screen behavior, and log evidence needed to close the gap.
-
-## Completion Gates
-
-- **Simple UI/data task:** active entry and node confirmed; one compatible path changed; static checks pass; authoritative value, edge value, missing-node, and reset behavior are checked; exact in-game observation is stated.
-- **Moderate lifecycle/configuration task:** reachable graph and Composer/config contract recorded; initialization plus retry/reload/fallback paths checked; focused host smoke test passes or a precise unavailable-host procedure is supplied.
-- **High-risk gameplay/native/migration task:** exact event/state contract is evidence-backed; reference and new paths are replay-compared; ABI/deployment and rollback are verified where applicable; no judgment, timing, indexing, reset, or compatibility assumption remains silently unresolved.
-
-## Handoff
-
-Keep the report compact and include:
-
-```text
-Completed: changed files and user-visible behavior
-Skin graph: entry -> reachable modules -> affected callbacks/nodes
-Preserved contracts: public API, Composer, units, mappings, compatibility
-Evidence: important official/target/probe facts and remaining inference
-Validation: commands/checks, host availability, and results
-Acceptance: exact mode, action, visible behavior, and relevant log evidence
-Backup/deployment: snapshot scope, destination, hashes, and rollback
-Remaining uncertainty: only items that can still change the result
-```
-
-## Reference Map
-
-- [`ui-data-animation.md`](references/ui-data-animation.md): data displays, animation ownership, coordinates, speed handling, and visual acceptance.
-- [`native-architecture.md`](references/native-architecture.md): Lua/native boundary, probe, ABI, lifecycle, replay, deployment, and rollback.
-- [`reusable-modules.md`](references/reusable-modules.md): parameterized lifecycle, config/locale, display, animation, overlay, KPS, clock, metric, judgment, native, probe, and replay modules.
-- [`reference-module-provenance.md`](references/reference-module-provenance.md): portable patterns versus private/reference-only dependencies.
-- [`official-basic.md`](references/official-basic.md): historical Basic/Composer API baseline.
-- [`official-free-mode.md`](references/official-free-mode.md): historical Free Mode API baseline.
-- [`free-mode-runtime.md`](references/free-mode-runtime.md): target-observed Free Mode runtime behavior.
-- [`runtime-deployment.md`](references/runtime-deployment.md): host probes, loaders, encoding, lifecycle ownership, and load failures.
-- [`implementation-safety.md`](references/implementation-safety.md): engine boundaries, normalization, architecture, and performance.
-- [`validation.md`](references/validation.md): static, behavioral, replay, algorithm, and failure checks.
-- [`composer-components.md`](references/composer-components.md): settings, module types, placement, layers, masks, and variables.
-- [`version-ledger.md`](references/version-ledger.md): version gates, changelog evidence, and required probes.
-- [`player-gameplay-rules.md`](references/player-gameplay-rules.md): player-facing score, judgment, grade, and Full Combo semantics.
-- [`basic-mode-case-study.md`](references/basic-mode-case-study.md): target-specific Basic Mode case study.
-- [`project-conventions.md`](references/project-conventions.md): optional repository-specific architecture and naming.
+For unavailable host checks, state target mode, fixture/action, expected visible result and required logs. Do not call a parser, mock, simulator or log-free launch gameplay acceptance. Do not stop after a plan when authorized local work remains.

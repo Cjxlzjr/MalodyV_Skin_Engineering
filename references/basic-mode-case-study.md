@@ -1,5 +1,7 @@
 # Basic-Mode Case Study
 
+Scope: historical Lua implementation snapshot, not the current active graph. No source hash or exact host build is recorded here. Recheck the target before adopting callback order, speed compensation, or lane-keyed state; the native-backed provenance map describes a different snapshot.
+
 Use this as a reusable architecture case, not a universal API contract. Sources inspected: the target Basic Mode entry, supporting judgment modules, and packaged skin metadata.
 
 ## Deployment snapshot
@@ -12,7 +14,7 @@ Use this as a reusable architecture case, not a universal API contract. Sources 
 
 - The entry script owns engine callbacks and dispatches to subsystem state tables: `KEYOVERLAY`, `KPS_CHART`, `CLOCK`, `MM`, `DUAL_ACC`, static hiding, shared data, `OsuJudge`, and `EttJudge`.
 - `ettjudge.lua` / `OsuJudge.lua` use `local M={}` plus `M.init/update/on_hit/on_input/on_retry/reset_state`, with private `local function` helpers and `return M`.
-- Dispatch order is intentional: `Init` initializes overlay, osu, Etterna, shared data, clock, KPS, MM, dual ACC, then static hiding; `Update` runs osu before shared/UI updates; `OnHit` runs osu, dual ACC, then Etterna; `OnInput` runs overlay, osu, Etterna, then KPS; `OnRetry` resets every subsystem and reapplies static hiding.
+- Historical dispatch order in this snapshot (recheck dependencies on a newer target): `Init` initializes overlay, osu, Etterna, shared data, clock, KPS, MM, dual ACC, then static hiding; `Update` runs osu before shared/UI updates; `OnHit` runs osu, dual ACC, then Etterna; `OnInput` runs overlay, osu, Etterna, then KPS; `OnRetry` resets every subsystem and reapplies static hiding.
 
 ## Reusable coding patterns
 
@@ -22,7 +24,7 @@ Use this as a reusable architecture case, not a universal API contract. Sources 
 - Preallocate reusable animation tables and numeric/string caches to reduce callback allocations.
 - Use ring buffers and bounded scans for recent input; use cached “last displayed” values to avoid redundant `Text` writes.
 - Preserve original alpha/position before hiding; support optional modules with `nil` checks.
-- Normalize speed once from Turbo plus speed Mod, but document whether offsets or windows are scaled and avoid double transformation.
+- This older snapshot combined Turbo and speed Mod. Reuse that fallback only if its target semantics are proved; prefer a separately validated effective-speed API, and never combine both transformations.
 - Reset counters, lane state, cursors, animation visibility, smoothing targets, export flags, and caches explicitly in `OnRetry`.
 
 ## Feature inventory
@@ -68,3 +70,5 @@ Exact osu/Malody support names also include `malody_combo`, `malody_combo1..4`, 
 - Sentinel `5210721`, hard-coded dimensions/counts, text-parsed configuration, and large single-file state increase maintenance risk.
 - Top-level unprotected `require`, global `InitSharedData` / `UpdateSharedData`, direct access to optional module fields, and absence of capability/version gates can blank the skin on unsupported hosts.
 - Preserve successful algorithms when fixing UI or lifecycle issues; isolate risky/optional exports, file access, and judge conversions behind validation and concise diagnostics.
+
+Lane-keyed hold state and the latest input event are historical implementation details, not sufficient note identity. For new or repaired long-note logic use the [event/phase contract](player-gameplay-rules.md#long-note-event-and-accuracy-rules).

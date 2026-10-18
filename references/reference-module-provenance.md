@@ -1,5 +1,7 @@
 # Reference Implementation Module Provenance Map
 
+Scope: historical source-reading map. Source names and paths below identify the reference implementation, not files guaranteed to exist in a new project. Without the original revision/hash, do not claim the current target has the same ordering or ABI. Read only the selected feature row and inspect its actual callers.
+
 This map records which verified source areas in the local reference implementation informed the reusable module catalog. Use it to inspect implementation ordering and state ownership. It is not a copy/paste map: all Composer IDs, Chinese settings keys, node geometry, assets, and Native assumptions belong to the reference implementation unless independently verified in the target skin.
 
 ## Encoding and source handling

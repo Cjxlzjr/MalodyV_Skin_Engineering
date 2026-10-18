@@ -1,0 +1,98 @@
+[
+  {
+    "id": 1,
+    "scenario": "ASM 语义解析与风险边界",
+    "prompt": "解析一个 MalodyV info.asm，整理 SkinFile、Module、ModuleParam 的已知字段，并说明 Scenes 与 Triggers 的差别、证据等级和不能猜测的语义。",
+    "expected": "读取 Composer ASM 参考；输出 wire 字段、证据标签与未决项；明确不把触发器当作适用条件、不把模拟器结果称为实机结果，也不猜测未知枚举。"
+  },
+  {
+    "id": 2,
+    "scenario": "条件、Note X、重复 ID 与模拟器",
+    "prompt": "一个皮肤有两个同 ID 的模块，分别带 Note X=1 和 Note X=4。实现或审查 Composer 模拟器时，如何区分普通 Text UI、实际 Note 模板和 Lua Module:Find？又应如何处理 Source=3、Source=6、Source 2/10/11、多条件和触发器？给出可回滚验证方案。",
+    "expected": "先区分模块作用域；普通 UI 的 Note X 探针不得外推为 Note 实例筛选；实际 Note 模板按 Note 实例轨道筛选；普通 Module:Find 在可判定条件筛选后让较晚活动重复项获胜。模拟器只执行具备场景输入和目标证据的条件，仅在已记录的 Windows fixture 中使用平台值 1，其他目标先取证，未知 Source/多条件/触发器保留活动并输出不确定性诊断；实验须包含单变量、备份、边界测试与恢复路径。"
+  },
+  {
+    "id": 3,
+    "scenario": "自由模式半圆判定案例",
+    "prompt": "分析一个可用 Free Mode 示例：它在 OnProcessNote 中把滑条段转换为虚拟 Note，在 OnDrawNote/OnNoteMove 绘制半圆轨道，在 OnInput 自定义判定，并在 OnHit 处理引擎 Miss。请给出安全修改方案、可泛化 API 结论、私有算法边界，以及 Manual、AutoPlay、Retry、Replay 的验证计划。",
+    "expected": "按回调作用域梳理 Note:AddVirtual、Note:GetNoteModule、AddSprite、FindNoteByTime、SetNoteFinish、InputEvent 与 HitEvent；将半圆坐标、类型号、资源名、judge 值、mode/feature 数字标为目标私有观察；警示该样本的外层 Note 循环从 1 开始与零基集合规则冲突，默认修复为 0..count-1 前须实机确认；给出备份、固定谱面、可见结果和四种运行路径的验证矩阵。"
+  },
+  {
+    "id": 4,
+    "scenario": "复杂：Trigger Source 与 Scenes 的作用域",
+    "prompt": "分析一份 Windows 4K Play 目标的 MalodyV info.asm，其中 Triggers 使用 Source 7、8、9、10、15。请区分 Trigger 与 Scenes 的适用范围，说明哪些映射可以作为目标观测、哪些仍是未知，并给出单变量 probe、Retry 和 Lua 回调交互的验证计划。",
+    "expected": "先读取 Composer 参考并标注目标范围；把 Source 映射、条件组合和事件持续时间分为 probe-observed 与 unknown；明确不能把 Trigger 条件表外推成 Scenes 语义或跨版本契约；给出单变量、边界、Retry、回滚和可见结果的验证步骤。"
+  },
+  {
+    "id": 5,
+    "scenario": "复杂：ASM 动画参数与证据边界",
+    "prompt": "解释 Composer ASM 中动画的 Type 1-10、Ease 0-2、Repeat、RepeatType、Delay 和 Nid。请按字段给出目标观察、未验证部分、同属性冲突的处理边界，以及如何设计不会污染源文件的验证。",
+    "expected": "列出参考中明确的 Type/Ease/时间/Repeat=0/Nid 目标观察，同时保留正数 repeat、RepeatType 边界、跨属性冲突和其他版本为 unknown；说明静态解析不能证明运行时动画；验证必须包含备份、单变量修改、边界采样、目标宿主观察和恢复。"
+  },
+  {
+    "id": 6,
+    "scenario": "失败：active entry 与部署副本无法区分",
+    "prompt": "用户要求修复一个 MalodyV 皮肤的空白屏幕，但仓库里有 source、backup、generated 和 deployed 四个候选目录，metadata 也有两个可能的入口。请说明你会先做什么、何时停止，以及最终报告如何区分已确认事实、推测和未知。",
+    "expected": "请求包含修复授权：先追踪 metadata、loader、入口、require 和候选 hashes。只暂停依赖歧义入口的生产修改/部署，继续独立静态检查和可回退候选修复。不能声称某副本 active 或已修复；说明缺少的精确证据，不因 diagnose 标签禁止已授权后续编辑。"
+  },
+  {
+    "id": 7,
+    "scenario": "失败：宿主不可用与验证降级",
+    "prompt": "目标 MalodyV 宿主当前不可启动。请为一个涉及 OnHit、Retry 和 replay 的 Lua 修改制定验证方案，并说明哪些检查可以完成、哪些结果必须标记 blocked，以及怎样写出用户可执行的宿主验收步骤。",
+    "expected": "先完成编码、语法、reachable module、回调和值路径、reset 和 deterministic checks；使用 acceptance matrix 标记缺失的 host/replay 行为为 blocked；不得把 parser、mock、dry-run 或无日志启动称为 gameplay/exact-host acceptance；提供目标版本、平台、mode、active copy、操作、预期可见结果和日志证据。"
+  },
+  {
+    "id": 8,
+    "scenario": "只读：版本冲突与缺少可选能力",
+    "prompt": "审查一个 Free Mode 皮肤：参考文档针对旧版本，当前目标版本的 OnProcessNote 调用形状和一个可选 Composer 节点都无法确认。用户要求你先分析，不要修改文件。请给出安全的分支路由、证据账本、可继续的 fallback 和必须停止的边界。",
+    "expected": "选择 explain/review；优先查 exact-target、probe、active-target 和官方证据；未确认的回调形状和依赖该事实的行为标记 unknown；只在可选节点有真实 fallback 时继续；不修改文件、不部署、不把旧版本参考升级为当前契约；最终输出 claim ledger、risk boundary 和下一 probe。"
+  },
+  {
+    "id": 9,
+    "scenario": "性能：Lua 与 Composer 高密度热路径",
+    "prompt": "MalodyV Steam Windows x64 Basic 4K 皮肤在高密度段掉帧。KPS 折线有 99 段，Update 约 1000 次/秒；必须保留即时按键和判定反馈、KPS、报告与 Retry。请给出可执行的优化与验证方案。",
+    "expected": "先固定宿主、设置、谱面和密集区间；按事件即时、连续视觉、普通文本、低频观测和结算分层；回调边界只读取一次宿主事件与时间；用无漂移 deadline、回退重置、逐属性 Composer 提交缓存和惰性 provider；前后比较属性写、宿主/native 调用、GC、耗时和逐事件状态；没有固定条件的实机测量不得声称达到 FPS；预先声明统计方法，例如三次中位数，而非把次数当成通用门槛。"
+  },
+  {
+    "id": 10,
+    "scenario": "性能：Lua/native 判定快照往返",
+    "prompt": "一个 MalodyV Lua/native 皮肤在每次 OnHit 后调用十多个 native getter 同步 score、accuracy、combo、六档计数。希望减少往返，但不能改导出名、判定语义或旧调用兼容性。请设计安全迁移与验证方案。",
+    "expected": "先证明旧调用忽略新增返回值且 ABI 允许；若成立，在既有 on_hit 上返回固定顺序标量快照，否则说明需版本化接口而不能破坏用户兼容约束。Lua 一次消费，逐事件对照旧 getter，覆盖受影响的 Tap/Hold/重复/Miss/Retry。完成相关架构、导出、ABI、自测和回放；部署哈希只在已授权部署时要求。"
+  },
+  {
+    "id": 11,
+    "scenario": "性能：报告惰性采样与时钟语义",
+    "prompt": "MalodyV 游玩报告目前每帧读取 Game:SystemTime 并构造完整结果快照，想降到 20 Hz 并惰性结算；同时已有暂停检测会合并 wall-clock gap 和 Game:Time rollback。如何优化且保持报告与暂停语义？",
+    "expected": "用 provider 延迟系统时钟和结果快照，只在采样 deadline 与结算检查调用；deadline 从旧 deadline 累进而非 now+interval；进入回退 episode 时只重基一次，不能让连续负 dt 恢复成逐帧 SystemTime 读取；Retry/reload 清空完整状态；保留逐击记录和 schema；识别降采样可能跨越 wall gap 与 Game rollback，避免重复计算回退；重跑 999/1000 ms 阈值、渐进回退、双时钟合并和报告压力测试。"
+  },
+  {
+    "id": 12,
+    "scenario": "不触发：文档小改",
+    "prompt": "把 README 中的拼写 MalodyVV 改成 MalodyV，只改这一处。",
+    "expected": "无显式 Skill 调用时不触发皮肤工程；核对单处差异即可，不读全部引用、不运行 gameplay/native 测试、不部署。"
+  },
+  {
+    "id": 13,
+    "scenario": "不触发：无关 Lua",
+    "prompt": "修复一个独立 Lua CSV 工具的列名拼写，不涉及 MalodyV。",
+    "expected": "不因 Lua 关键词触发此 Skill。"
+  },
+  {
+    "id": 14,
+    "scenario": "授权：审计并修正",
+    "prompt": "审计并修正已明确指定的 MalodyV 文档中 API receiver 写错的地方，不运行游戏、不部署。",
+    "expected": "按完整请求允许文档编辑；核对官方表与历史示例冲突，无法证明处标注而非猜测。只做链接和文档检查，不强制 active gameplay graph 或宿主验收。"
+  },
+  {
+    "id": 15,
+    "scenario": "时序：回退不等于新局",
+    "prompt": "报告的暂停检测器在 Game:Time 渐进回退时清空了 peak/trough，所以检测不到累计回退。修复并保留原始 hit 记录。",
+    "expected": "保留同一 attempt 内的回退 episode，在 Retry/reload 才清新局状态；派生窗口按所有权 reset/rebase。使用非零峰值、多次小回退、恢复和 Retry fixture，不清原始事件来伪造成功。"
+  },
+  {
+    "id": 16,
+    "scenario": "证据：Text API 范围",
+    "prompt": "4K Key 的 api_hit 一直显示 {hit}。这是否证明所有模式都不支持，或应该作为 0 写进原始报告？",
+    "expected": "保留 literal 并记录 unavailable；不能外推非 Key 或跨版本支持，不能替换为零。区分 Init 尚未解析和 final_unresolved。"
+  }
+]

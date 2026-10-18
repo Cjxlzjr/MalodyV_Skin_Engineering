@@ -1,5 +1,7 @@
 # MalodyV Analyzer 项目脚本规范
 
+适用范围：历史 MalodyV Analyzer 项目（`master_analysis.lua` / MinaCalc），不是所有皮肤的目录规范，也不要求 Mutsumi 改入口。先确认目标确实采用这些模块，再使用相关约定。
+
 ## 1. 目录与职责
 
 - `master_analysis.lua`：皮肤唯一入口/调度器；只暴露引擎回调，负责状态机、UI 绑定、事件分发和重置。
@@ -44,16 +46,16 @@
 - `JudgeResult()` 使用官方判定枚举；当前项目按 `1..4` 处理 Best/Cool/Good/Miss，修改时必须先核对文档和现有 UI 映射。
 - `info.x`、`info.time`、`info.endtime` 等字段的单位和索引必须以官方文档为准；项目当前 `OnNoteMove` 按 1-based 轨道计算 `(info.x - 2.5) * TRACK_WIDTH`，若实际环境为 0-based 必须整体调整。
 - `NoteInfo.row_notes` 是 4K 位图：列 1/2/3/4 对应 `1/2/4/8`；同一时间容差内的列合并为 chord。
-- 任何 `Chart:ChartInfo()` 字符串都先 `tonumber` 再参与数值计算；缺失值要提供默认值。
+- 任何 `Chart:ChartInfo()` 字符串都先 `tonumber` 再参与数值计算；缺失的可选显示值使用明确默认值；必需的谱面身份、单位或判定值不得悄悄补零。
 
 ## 6. 性能与安全
 
 - 不要在 `Update` 中反复 `Module:Find`、解析整张谱面或创建大量元件。
 - 使用 `Module:Find` 缓存元件引用；使用 `Module:GetString/GetNumber/GetBool` 读取 Composer 配置。
-- 自由模式的 `Chart`、`Note`、`Play`、`Score` 接口必须只在自由模式启用并且对应回调允许的场景使用。
-- `Note:GetNoteModule`、`Note:AddSprite`、`Note:AddGrid` 只在 `OnDrawNote` 相关流程使用；`Chart:AddVirtual` 只在 `OnProcessNote` 使用。
+- 自由模式的 `Chart`、`Note`、`Play` 接口（历史文档 prose 中的 `Score` 不证明存在同名对象）必须只在自由模式启用并且对应回调允许的场景使用。
+- `Note:GetNoteModule` 在 `OnDrawNote` 中取得 Note 元件；接口表将 `AddSprite` / `AddGrid` 列为该元件的方法，而历史示例混用了 `Note:AddSprite`，须按目标验证，不能假设两种 receiver 通用。`Note:AddVirtual` 只在 `OnProcessNote` 使用。
 - 长条 Note 必须根据 `endtime > time` 选择 `hold` 模块，并分别添加 head/body/tail 等子部件。
-- 批量处理前检查 `nil`、空表、长度、数值范围；计算模块错误用 `pcall` 隔离并更新 debug 面板，而不是让入口函数报错。
+- 批量处理前检查 `nil`、空表、长度、数值范围；仅对有真实降级路径的可选计算用 `pcall` 隔离并更新 debug 面板；必需计算失败时明确报错，禁止继续显示有效结果。
 
 ## 7. 调试流程
 
@@ -68,4 +70,4 @@
 
 - 优先最小补丁和根因修复，不重写已经工作的算法。
 - 保留现有注释和模块命名；新增代码遵循 snake_case 局部变量、全大写配置常量、功能前缀状态表。
-- 不把官方文档未确认的行为当成事实；遇到索引、单位、事件触发时机不确定时，先查 references 或向用户询问。
+- 不把官方文档未确认的行为当成事实；遇到索引、单位、事件触发时机不确定时，先查相关 reference、当前代码或已有探针；仍无法确定且影响正确性时只暂停依赖该事实的分支并询问，继续独立工作。

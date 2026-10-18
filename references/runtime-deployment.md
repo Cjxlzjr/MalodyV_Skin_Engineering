@@ -1,5 +1,7 @@
 # Runtime and Deployment
 
+Use loader sections for loading failures, file-output sections for reports, and deployment checks only for a requested installation. A source fix does not authorize copying to a live skin. If source/destination and backup scope are already authorized and unambiguous, do not ask for confirmation again.
+
 ## Probe the host before selecting a deployment form
 
 Treat the Lua host as a capability profile, not a stock Lua installation. A successful local Lua test or generic large-chunk compile test does not prove that the Malody script host accepts the same entry, globals, or load timing.
@@ -19,6 +21,61 @@ Probe in the real host and record exact version, platform, mode, and callback:
 - **Global writes:** Independently test setting/clearing globals and whether a loader may replace `require` or callbacks. Successful `rawget` does not imply writes are permitted.
 
 For protected loaders, test the exact static source, not merely a similarly sized generated chunk. If failure can occur before `Init()`, provide a small deferred diagnostic wrapper that captures the stage and displays it after Composer is available. Never release that wrapper or embedded trust material.
+
+## File output and JSON reports
+
+### Target-observed `Game:WriteFile` contract — August 13, 2026
+
+On the tested Windows MalodyV host, Lua calls `Game:WriteFile(relative_path,
+content)` directly; no skin DLL is required for JSON encoding or writing.
+Successful calls returned `nil`, so success is `pcall(...) == true` **and** the
+returned value is not explicitly `false`.
+
+- Paths are relative to the active skin root.
+- The host does not create parent directories. Create `output_report/` in the
+  skin before runtime; otherwise a write to `output_report/name.json` throws a
+  `DirectoryNotFoundException`.
+- Use a primary `output_report/<sanitized-name>.json` path and a skin-root
+  fallback `<sanitized-name>.json`; record `fallback_used` and a compact error
+  reason in the report.
+- Sanitize Windows-invalid filename characters `\\ / : * ? " < > |`; trim trailing
+  dots/spaces and handle an empty result.
+- Treat a DLL as a computation boundary only. Native code may supply metrics,
+  but Lua owns `Game`, `Module`, Composer, JSON serialization, lifecycle, and
+  file output unless target evidence proves another design.
+
+### Completion export: August 13 probe strategy
+
+In this probe, the host could switch away from the play scene immediately after audio end. The probe therefore did not wait for `AudioLength()+200 ms`, multiple delayed 100 ms samples, or a
+later result-screen callback. Its `Update()` exported once on the first observed
+frame where `Game:Time() >= Game:AudioLength()`; guard with `finalized` before
+building or writing the report. Exact-host evidence recorded a successful write
+at `60601 ms` for a `60600 ms` chart immediately before `Switch to 6`.
+
+Keep periodic snapshots separate from finalization. Event-forced samples are
+useful for changes, but finalization must not depend on their cadence. For
+this probe, Retry retained prior history in a new run segment. Production reports
+may instead clear the previous attempt; preserve the target schema and retention
+policy. Log clock rollback separately from Retry.
+
+Do not replace a target's settled-score finalizer with this first-frame strategy
+without comparing final counters and scene timing. Mutsumi's current report path
+has used delayed/stable-snapshot finalization and cleared Retry history; these
+are distinct contracts. Verify the active implementation and exact-host finish
+behavior before changing either policy.
+
+### JSON validity requirements
+
+- Encode strings byte-for-byte with JSON escapes for quote, backslash, tab,
+  LF, CR, backspace, form feed, and every remaining `0x00..0x1F` control byte.
+- Host exception text can contain CRLF stack traces. Never insert it unescaped
+  into a JSON string; prefer a concise error summary when full stack text is
+  not needed.
+- Validate the generated file with a strict JSON parser after exact-host export,
+  not merely with a Lua encoder or a log message.
+- Log explicit milestones: `Init reached`, primary write result, fallback write
+  result, and finalize time versus audio length. This distinguishes inactive
+  entry, missing directory, failed write, and missed finalization.
 
 ### Recorded Free Mode `load` observation - July 17, 2026
 
@@ -59,17 +116,17 @@ For each mutable state, record owner, unit, lifetime, reset point, and source of
 
 ## Blank or load-failure diagnosis
 
-Use this order:
+Start with active-entry selection, then investigate the first failing stage. Use the relevant checks below, not an unconditional ten-step mutation sequence:
 
 1. Check encoding, BOM, malformed comments, and accidental string corruption.
 2. Confirm active entry and duplicate-file selection.
 3. Reproduce `require` loading from the deployed skin directory.
-4. Confirm every dependency, data file, model, asset, and Composer element.
+4. Confirm dependencies, data files, models, assets, and Composer elements on the failing reachable path.
 5. Confirm `Init()` completion and the last initialized subsystem.
 6. Check `Module:Find`, Composer types, clone names, property writes, and parent relationships.
 7. Check callback names, parameters, mode restrictions, and version gates.
 8. Verify coordinate root, dimensions, anchors, alpha range, draw order, units, indices, masks, and enums.
-9. Disable optional UI, effects, and analysis one subsystem at a time while preserving core gameplay.
+9. For an authorized fix or isolated probe, disable a suspected optional subsystem with a real fallback. Pure review/diagnosis requests remain read-only.
 10. Confirm `OnRetry()` resets all mutable and derived state.
 
-When runtime data is missing, request exact MalodyV version/platform, mode, entry, callback, error/log, Composer setup, and minimal reproduction. Never guess undocumented API behavior.
+Collect available local evidence first. Request only missing result-changing details among exact MalodyV version/platform, mode, entry, callback, error/log, Composer setup, and minimal reproduction. Never guess undocumented API behavior.

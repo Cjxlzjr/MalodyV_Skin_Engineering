@@ -1,5 +1,7 @@
 # Implementation Safety
 
+Read the sections for the changed boundary or state owner. Pure documentation edits need no chart/runtime inventory. Required gameplay data must fail clearly when invalid; optional presentation may use a documented fallback. Preserve raw event/report evidence separately from resettable derived state.
+
 ## Engine boundaries
 
 Keep engine calls at adapter boundaries. Pure modules accept plain Lua data and return stable Lua results. At each boundary:
@@ -62,6 +64,14 @@ Separate parsing, calculation, state mutation, and UI formatting where practical
 - Keep note rendering allocation-light; avoid analysis in `OnNoteMove()`.
 - Define cache lifetime/invalidation before adding a cache.
 - Include chart identity, mode, rate, judge scale, modifiers, key count, algorithm version, and every result-affecting option in cache keys.
-- Invalidate chart caches after retry, reload, rate/mod/judge-scale changes, or algorithm configuration changes.
+- Invalidate caches when their inputs or lifetime change. Retry resets per-attempt derived state; immutable chart data may be reused only when its full identity/configuration key still matches.
 - Keep an uncached fallback when cache validity cannot be proven.
 - Measure initialization separately from frame-time work.
+
+## Temporal state safety
+
+- Name the clock that owns each timeline, rolling window, interpolation, animation, graph, and time-indexed cache. Do not silently mix gameplay time, audio time, wall time, or transformed chart time.
+- Assume gameplay-facing clocks may move backward on pause/resume, seek, replay, retry, reload, or host correction unless target evidence proves otherwise.
+- Define one reset/rebase function per temporal subsystem. It must cover every derived field owned by that clock: prior timestamps, cursors, ring heads, histories, samples, smoothing values, cached extrema/scales, animation bounds, and generated presentation geometry.
+- Invoke the reset/rebase before consuming values from the regressed timestamp. If a lower layer resets its counters, reset dependent Lua/UI state in the same update path so stale high-scale history cannot be rendered against a reset low-scale denominator.
+- Clamp or reject non-finite and out-of-range geometry after state transition, but treat that as a safety boundary rather than a substitute for resetting the corrupt source state.

@@ -2,6 +2,8 @@
 
 Use this catalog after identifying the target skin's actual entry, mode, callbacks, Composer nodes, settings, and data sources. It converts common requests into a small implementation contract and a Lua 5.3 skeleton. It does not grant permission to assume a node ID, a callback API, an event enum, a coordinate system, or a Native module exists.
 
+Examples are independent Lua 5.3 skeletons, not a complete deployable skin. Bind only the selected example to verified host inputs; finite normalized timestamps and required node types are caller contracts. A local fixture proves helper behavior, not host API availability.
+
 ## Catalog rules
 
 For every selected module, record:
@@ -48,9 +50,11 @@ end
 
 function runtime.configure(handlers)
     runtime.handlers = handlers or {}
+    runtime.initialized = false
 end
 
 function runtime.init()
+    runtime.initialized = false
     call("init")
     runtime.initialized = true
 end
@@ -108,7 +112,10 @@ function config.read_number(key, default)
         return Module:GetNumber(key)
     end)
     value = ok and tonumber(value) or nil
-    return value == nil and default or value
+    if value == nil or value ~= value or value == math.huge or value == -math.huge then
+        return default
+    end
+    return value
 end
 
 function config.read_string(key, default)
@@ -122,7 +129,7 @@ function config.read_string(key, default)
 end
 ```
 
-**Acceptance:** missing optional settings use documented deterministic defaults; missing required settings fail with the key and feature name.
+**Acceptance:** the wrappers fall back on errors/nil, not on absence inferred from a host default. `GetBool` returns false and `GetNumber` returns 0 for missing keys in the historical API; these values cannot distinguish absence from explicit false/zero. Verify required key existence/type in Composer/ASM before calling, and do not replace legitimate false/zero. The wrappers alone do not validate required settings.
 
 ## 3. Node binding, visibility, and text cache
 
@@ -133,7 +140,7 @@ end
 **Property ownership:** the feature owns only the properties it changes. If another feature owns `Alpha` or `Text`, combine outputs in a single adapter rather than both writing independently.
 
 ```lua
-local ui = { node = nil, last_text = nil, enabled = true }
+local ui = { last_text = setmetatable({}, { __mode = "k" }) }
 
 local function bind_required(id)
     local node = Module:Find(id)
@@ -153,14 +160,14 @@ end
 
 local function set_text_cached(node, text)
     text = tostring(text)
-    if node and ui.last_text ~= text then
-        ui.last_text = text
+    if node and ui.last_text[node] ~= text then
         node.Text = text
+        ui.last_text[node] = text
     end
 end
 
 local function reset_text_cache()
-    ui.last_text = nil
+    ui.last_text = setmetatable({}, { __mode = "k" })
 end
 ```
 
@@ -180,21 +187,22 @@ For score, judgement-count, difficulty-label, result-grade, or Full Combo UI, re
 local display = { last_key = nil, node = nil }
 
 local function percent_text(value, decimals)
-    local number = tonumber(value) or 0
+    local number = tonumber(value)
+    if not number or number ~= number or number < 0 or number > 1 then return "--" end
     return string.format("%." .. tostring(decimals) .. "f%%", number * 100)
 end
 
 local function write_number(key, text)
     if display.node and display.last_key ~= key then
-        display.last_key = key
         display.node.Text = text
+        display.last_key = key
     end
 end
 
 local function update_accuracy(raw_accuracy)
-    local value = tonumber(raw_accuracy) or 0
-    local key = math.floor(value * 10000 + 0.5)
-    write_number(key, percent_text(value, 2))
+    -- This adapter accepts a fraction [0,1], not percent [0,100].
+    local text = percent_text(raw_accuracy, 2)
+    write_number(text, text)
 end
 
 local function reset_display()
@@ -237,6 +245,7 @@ end
 
 function animation.trigger(state, now_ms, duration_ms, offset_x, offset_y)
     state.start_ms = now_ms
+    state.last_time_ms = now_ms
     state.duration_ms = math.max(1, duration_ms)
     state.offset_x = offset_x or 0
     state.offset_y = offset_y or 0
@@ -244,6 +253,10 @@ function animation.trigger(state, now_ms, duration_ms, offset_x, offset_y)
 end
 
 function animation.update(state, now_ms)
+    if state.last_time_ms and now_ms < state.last_time_ms then
+        animation.reset(state)
+    end
+    state.last_time_ms = now_ms
     if not state.node or not state.active then return false end
     local progress = clamp((now_ms - state.start_ms) / state.duration_ms, 0, 1)
     local remaining = 1 - progress
@@ -262,6 +275,9 @@ function animation.reset(state)
         state.node.Alpha = state.base_alpha
     end
     state.active = false
+    state.start_ms, state.duration_ms = 0, 0
+    state.offset_x, state.offset_y = 0, 0
+    state.last_time_ms = nil
 end
 ```
 
@@ -280,10 +296,11 @@ local overlay = { lanes = {}, count = 0 }
 
 local function add_lane(index, template, make_id)
     local node = index == 1 and template or Module:Clone(template, make_id(index))
+    overlay.count = math.max(overlay.count, index)
     overlay.lanes[index] = {
         node = node,
         presses = 0,
-        animation = node and { base_alpha = node.Alpha, until_ms = 0 } or nil,
+        animation = node and { base_alpha = node.Alpha, until_ms = nil } or nil,
     }
 end
 
@@ -296,16 +313,28 @@ local function register_press(lane_index, now_ms, duration_ms)
     end
 end
 
+local function reset_lanes()
+    for _, lane in pairs(overlay.lanes) do
+        lane.presses = 0
+        if lane.animation then
+            lane.animation.until_ms = nil
+            if lane.node then lane.node.Alpha = lane.animation.base_alpha end
+        end
+    end
+end
+
 local function update_lanes(now_ms)
     for index = 1, overlay.count do
         local lane = overlay.lanes[index]
         if lane and lane.node and lane.animation then
-            local active = now_ms < lane.animation.until_ms
+            local active = lane.animation.until_ms and now_ms < lane.animation.until_ms
             lane.node.Alpha = active and 100 or lane.animation.base_alpha
         end
     end
 end
 ```
+
+Bind `reset_lanes` to Retry/reload. For a same-attempt time rollback, clear/rebase effect deadlines without discarding press counts unless the metric contract requires that reset.
 
 **Acceptance:** key count determines instance count; a single input only affects its mapped lane; retry clears counts and inactive effects.
 
@@ -318,17 +347,28 @@ end
 **State/reset:** maintain bounded timestamps/history, current input bucket, cached scale, and clone references. Reset the entire history on retry and time rollback.
 
 ```lua
-local kps = { times = {}, head = 1, window_ms = 1000 }
+local kps = { times = {}, head = 1, window_ms = 1000, last_time = nil }
+
+local function reset_kps()
+    kps.times, kps.head, kps.last_time = {}, 1, nil
+end
 
 local function prune_inputs(now_ms)
+    if kps.last_time and now_ms < kps.last_time then reset_kps() end
+    kps.last_time = now_ms
     while kps.head <= #kps.times and kps.times[kps.head] < now_ms - kps.window_ms do
         kps.head = kps.head + 1
+    end
+    if kps.head > 256 and kps.head > #kps.times / 2 then
+        local live = {}
+        for i = kps.head, #kps.times do live[#live + 1] = kps.times[i] end
+        kps.times, kps.head = live, 1
     end
 end
 
 local function record_input(now_ms)
-    kps.times[#kps.times + 1] = now_ms
     prune_inputs(now_ms)
+    kps.times[#kps.times + 1] = now_ms
 end
 
 local function current_kps(now_ms)
@@ -336,13 +376,9 @@ local function current_kps(now_ms)
     return #kps.times - kps.head + 1
 end
 
-local function reset_kps()
-    kps.times = {}
-    kps.head = 1
-end
 ```
 
-**Acceptance:** the input list stays bounded, KPS uses one documented time window, and renderer writes only affected bars/points when values change.
+**Acceptance:** retired inputs are compacted (storage depends on the active window plus bounded/amortized retired overhead, not session duration), KPS uses the inclusive `[now-1000, now]` window, and renderer writes only affected bars/points when values change.
 
 ## 8. Clock and progress module
 
@@ -356,9 +392,15 @@ end
 local clock = { text = nil, bar = nil, last_second = nil, base_width = 0 }
 
 local function update_clock(now_ms, duration_ms)
-    local total = tonumber(duration_ms) or 0
-    if total <= 0 then return end
-    local elapsed = math.max(0, now_ms)
+    local total, now = tonumber(duration_ms), tonumber(now_ms)
+    if not total or total ~= total or total <= 0 or total == math.huge
+       or not now or now ~= now or now == math.huge or now == -math.huge then
+        if clock.text then clock.text.Text = "--:--" end
+        if clock.bar then clock.bar.Width = 0 end
+        clock.last_second = nil
+        return
+    end
+    local elapsed = math.max(0, now)
     local second = math.floor(elapsed / 1000)
     if clock.text and clock.last_second ~= second then
         clock.last_second = second
@@ -371,7 +413,7 @@ local function update_clock(now_ms, duration_ms)
 end
 ```
 
-**Acceptance:** zero/unknown duration is safe; progress clamps to the intended range; retry restores the target skin's base bar state.
+**Acceptance:** zero/unknown duration is safe; progress clamps to the intended range; the caller resets `last_second` and applies its chosen initial text/progress on Retry. This sample uses zero-width progress for unknown duration, not a retained previous chart value.
 
 ## 9. Metric adapters: MM/S, dual accuracy, and Etterna accuracy
 
@@ -385,11 +427,13 @@ end
 local metric = { primary = nil, secondary = nil, last_primary = nil, last_secondary = nil }
 
 local function write_metric(node, value, decimals, last_key_name)
-    local number = tonumber(value) or 0
-    local key = math.floor(number * (10 ^ decimals) + 0.5)
+    local number = tonumber(value)
+    local valid = number and number == number and number ~= math.huge and number ~= -math.huge
+    -- This metric source is already percent; negative values may be valid.
+    local key = valid and string.format("%." .. tostring(decimals) .. "f%%", number) or "--"
     if metric[last_key_name] ~= key and node then
+        node.Text = key
         metric[last_key_name] = key
-        node.Text = string.format("%." .. tostring(decimals) .. "f%%", number)
     end
 end
 
@@ -407,7 +451,7 @@ end
 
 **Target discovery:** confirm event extraction (`JudgeResult`, offset, note/lane fields), enum mapping, offset sign/unit, score source, combo source, UI node family, and judgement visibility rules. This module must not silently reinterpret a host enum.
 
-**State/reset:** keep last judgement timestamp, active node, score/accuracy/combo display cache, timed effect state, and all counters. Clear them on retry and time rollback.
+**State/reset:** keep last judgement timestamp, active node, score/accuracy/combo display cache, timed effect state, and all counters. Reset per-attempt counters on Retry; reset/rebase clock-owned visual deadlines on rollback without erasing authoritative score or raw events.
 
 ```lua
 local judge = { last_result = nil, last_time = 0, active_node = nil }
@@ -425,6 +469,9 @@ end
 local function show_judgement(result, now_ms, node_by_result)
     local node = node_by_result[result]
     if not node then return end
+    if judge.active_node and judge.active_node ~= node then
+        judge.active_node.Alpha = 0
+    end
     judge.last_result = result
     judge.last_time = now_ms
     judge.active_node = node
@@ -473,6 +520,8 @@ local function reset_native(native)
 end
 ```
 
+This optional-loader sketch does not validate ABI or provide a gameplay fallback. Use it only where a real fallback exists; required Native failures remain fatal before gameplay.
+
 **Acceptance:** standalone `require`, ABI/self-test, exact-host load, lifecycle probe, and replay all pass before production deployment. When Native is optional, the Lua fallback is explicit and never displays stale values.
 
 ## 12. Probe and replay harness
@@ -509,6 +558,8 @@ function OnRetry()
 end
 ```
 
+The counter-only sketch needs a target-supported log or status-node adapter before it can supply observable host evidence.
+
 **Acceptance:** host logs or a dedicated optional status node prove callback entry; probes do not modify or depend on the production feature graph.
 
 ## Selection guide
@@ -521,7 +572,7 @@ end
 "add timer/progress"                 -> Clock/progress + Numeric display
 "show alternate judgement/offset"    -> Judgement visual adapter + Numeric display
 "show MM/S, dual ACC, Ett accuracy"  -> Metric adapter; confirm algorithm/source first
-"optimize a proven hot path"         -> Native bridge only after profiling and probes
+"optimize a proven hot path"         -> Profile Lua/Composer first; Native bridge only when justified and probed
 "API/callback does not behave"       -> Probe and replay harness before changing production logic
 ```
 

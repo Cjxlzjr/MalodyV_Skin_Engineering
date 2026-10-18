@@ -1,5 +1,7 @@
 # UI Data and Animation Contracts
 
+Use the data, animation, coordinates, speed, or configuration section that the change touches. Validate affected properties and lifecycle paths; this is not a requirement to redesign or test every HUD feature.
+
 Use this reference for player-visible numeric/text displays, layout changes, movement, scale, alpha, visibility, clones, and localized formatting.
 
 ## Contents
@@ -20,7 +22,7 @@ For score, accuracy, combo, KPS, progress, judgment counters, and similar displa
 3. Update event-driven values from the owning event. Use `Update()` for time-continuous values or visible interpolation, not for repeated chart scans or unchanged string formatting.
 4. Define reset behavior for retry, chart reload, mode transition, and detected time rollback.
 5. Specify precision, percentage conversion, signs, leading zeros, locale, and fallback text.
-6. Exercise `nil`, zero notes, zero duration, empty metadata, first event, miss, negative offset, long text, and unusually large values.
+6. Select relevant boundaries: `nil`, zero notes/duration, empty metadata, first event, miss, negative offset, long text, or unusually large values.
 7. Cache the last visible value and write a Composer property only when its rendered result changes.
 
 Player-facing rules can clarify labels and acceptance, but they do not replace target-proven score, grade, accuracy, judgment, hold, or Full Combo contracts. Prefer engine-provided final values over reimplementing scoring from documentation.
@@ -33,7 +35,7 @@ For movement, scaling, fades, pulses, reveals, and repeated elements:
 2. Assign one owner for each written property. If layout and feedback both influence `X`, `Y`, scale, alpha, text, or visibility, combine their inputs in one final apply function.
 3. Record start time, duration, initial/target state, active flag, retrigger policy, and per-instance identity.
 4. Choose restart, replace, blend, ignore, or queue behavior explicitly on retrigger.
-5. Use one documented time unit, clamp interpolation progress, and treat time rollback as reset.
+5. Use one documented time unit, clamp interpolation progress, and define reset or rebase on time rollback.
 6. Keep cloned instances independent unless synchronization is intentional.
 7. Restore resting state deterministically when the effect ends or lifecycle reset occurs.
 
@@ -67,7 +69,7 @@ Treat positioning as an engine contract:
 4. Keep one coordinate system per layout and make every conversion explicit.
 5. For multiline text, treat the anchor as belonging to the whole rendered block unless the target proves another rule.
 6. Anchor the row or element that must remain fixed, then derive neighboring positions from it.
-7. Change one layout variable at a time and retain measured before/after values or screenshots.
+7. For an unknown coordinate mapping, probe one variable at a time; once verified, related fields may be patched together with before/after evidence.
 8. Validate final coordinates numerically and visually in Composer or the host.
 
 Example panel-relative conversion:
@@ -93,7 +95,7 @@ When supported in the exact callback, `Game:PlayMeta("speed")` is the runtime so
 
 - Normalize with `tonumber`; accept only positive values such as `0.8`, `1.0`, `1.2`, or `1.5`.
 - Read it in the callback that uses it; availability elsewhere does not prove callback-wide support.
-- Use a neutral `1.0` compatibility fallback when the API is optional.
+- The example below is for optional visual timing only: use a neutral `1.0` fallback when that behavior is acceptable. Required judgement/offset normalization must report unavailable speed instead of silently assuming `1.0`.
 - Do not also parse speed mods or apply a second turbo correction after a valid runtime multiplier.
 
 ```lua
@@ -102,7 +104,7 @@ local function read_play_speed()
         return Game:PlayMeta("speed")
     end)
     value = ok and tonumber(value) or nil
-    return value and value > 0 and value or 1.0
+    return value and value > 0 and value < math.huge and value or 1.0
 end
 ```
 
@@ -123,11 +125,11 @@ localized text keys         -> display-only labels and format strings
 - Keep numeric calculation outside the locale layer; format at the UI boundary and cache by normalized value plus locale.
 - Use a deterministic fallback locale when an optional language setting is absent, while surfacing required configuration failures.
 
-Use the configuration/locale adapter in [`reusable-modules.md`](reusable-modules.md) rather than creating another pattern from scratch.
+Prefer the target's compatible configuration adapter. The [catalog example](reusable-modules.md) is optional and does not detect missing keys when host getters return false/zero defaults.
 
 ## Focused Acceptance
 
-Before calling a UI change complete, record:
+For the affected UI behavior, record applicable fields; animation details are unnecessary for a static text fix:
 
 ```text
 authoritative value and unit
