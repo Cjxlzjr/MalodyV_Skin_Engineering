@@ -2,7 +2,6 @@
 
 > 面向 **MalodyV 皮肤（Skin）工程** 的 Agent Skill：以可追溯的资料和目标运行时证据，辅助 AI 编码助手分析、开发、迁移、调试与审查 Lua 脚本和 Composer 配置。
 
-**仓库名称：** `malodyv-lua`  
 **技能名称：** `malodyv-skin-engineering`（见 [`SKILL.md`](SKILL.md) 中的 `name`）
 
 ## 项目简介
