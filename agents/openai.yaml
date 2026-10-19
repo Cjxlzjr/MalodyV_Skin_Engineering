@@ -1,4 +1,4 @@
 interface:
-  display_name: "MalodyV Lua Skin Graph Engineering"
-  short_description: "Trace and safely change MalodyV skin graphs"
-  default_prompt: "Use $malodyv-lua to trace the active skin graph, preserve its contracts, and implement or diagnose this MalodyV task."
+  display_name: "MalodyV Skin Engineering"
+  short_description: "Create, modify, diagnose, and review MalodyV skins"
+  default_prompt: "Use $malodyv-skin-engineering to create, modify, diagnose, review, or explain this MalodyV skin task. Trace the relevant skin graph (or establish one for a new skin), consult only applicable references, preserve existing contracts, validate proportionally, and deploy only when explicitly requested."
